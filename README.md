@@ -1,140 +1,98 @@
-# Public Data Explorer (Django / Wikidata SPARQL)
+🌐 Django Data Explorer (MongoDB/SPARQL)
+Version: beta-1.1.0
 
-🛡️ **Version:** 1.0.0 | 🐍 **Python:** 3.8+ | 🌐 **Framework:** Django
+This project is a Django web application designed to explore public data (via a SPARQL endpoint) using MongoDB as the primary database backend and a robust Conda environment for dependency management.
 
-A robust web application designed to query and explore public data from **Wikidata's SPARQL endpoint**. This project utilizes a **Service Layer architecture** and implements a **Time-To-Live (TTL) caching mechanism** using MongoDB for performance optimization.
+🚀 Features
+MongoDB Backend: Uses djongo to enable the standard Django ORM, authentication, and sessions with MongoDB.
 
-## 🌟 Features
+Data Exploration: Communicates with external SPARQL endpoints using SPARQLWrapper.
 
-  * **Dual Query Interface:** Seamlessly switch between **QID/Property Lookup** (for quick exploration) and **Raw SPARQL Query** (for advanced users).
-  * **Intelligent Caching:** Implements a **24-Hour TTL cache** via **PyMongo**, reducing latency and load on the external Wikidata API for repeated queries.
-  * **Dynamic Results:** The frontend renders columns and rows entirely dynamically based on the variables returned by the SPARQL query (using a custom Django template filter).
-  * **Service Layer Separation:** Clean separation of concerns between Views, Business Logic, and Data Access (`data_service.py` handles PyMongo and SPARQLWrapper).
+Custom Caching: Implements a high-performance caching layer using raw pymongo for SPARQL query results.
 
------
+Secure Configuration: Uses python-decouple to manage sensitive settings via a local .env file.
 
-## 🏗️ Architecture
+Isolated Environment: Managed by Conda to ensure specific Python and package versions are maintained.
 
-The project adheres to a Service Layer pattern for maintainability and testability.
+⚙️ Prerequisites
+Before running the project, ensure you have the following installed:
 
-| Component | Technology | Responsibility |
-| :--- | :--- | :--- |
-| **View Layer** (`views.py`) | Django Views | Handles HTTP requests, calls the Service Layer, and manages template context. |
-| **Service Layer** (`explorer_service.py`) | Python | Business Logic: Transforms QID/Property input into SPARQL queries. Coordinates with the Data Layer. |
-| **Data Layer** (`data_service.py`) | PyMongo, SPARQLWrapper | External Access: Manages MongoDB caching (TTL Index) and executes external SPARQL queries. |
-| **Frontend** (`data_explorer.html`) | HTML, Django Templates | Dynamic Rendering: Uses `{{ row|get_item:col }}` to iterate and display variable-driven results. |
+Git
 
------
+Miniconda or Anaconda (recommended for environment management)
 
-## ⚙️ Local Setup and Installation
+MongoDB Server (running locally or a connection string from MongoDB Atlas)
 
-### Prerequisites
+📦 Project Setup
+Follow these steps to clone the repository and set up your isolated Conda environment.
 
-You must have the following installed and running:
+1. Clone Repository
+Bash
 
-  * **Python** (3.8 or higher)
-  * **MongoDB Server** (running and accessible)
-
-### Step 1: Clone and Activate
-
-```bash
-# 1. Clone the repository
-git clone https://github.com/YourUsername/public-data-explorer.git
+git clone <YOUR_REPOSITORY_URL> public-data-explorer-project
 cd public-data-explorer-project
+2. Create and Activate Conda Environment
+We use the provided environment.yml to recreate the exact environment, including the compatible Python 3.11 version.
 
-# 2. Create and activate a virtual environment
-python3 -m venv venv
-source venv/bin/activate
-```
+Bash
 
-### Step 2: Install Dependencies
+# Create the environment using the YAML file
+conda env create -f environment.yml
 
-```bash
-pip install Django python-decouple pymongo SPARQLWrapper requests
-```
+# Activate the newly created environment (important!)
+conda activate ./conda_env
+3. Install Pip-Only Dependencies
+Some packages, like djongo, are installed via pip within the active Conda environment.
 
-### Step 3: Configure Environment (`.env`)
+Bash
 
-Create a **`.env`** file in the project root directory and add the following configuration variables. This is crucial for security and database connectivity.
+pip install -r requirements.txt
+4. Configure Environment Variables
+Create a file named .env in the root directory and add your connection strings and secrets.
 
-```ini
-# .env
-SECRET_KEY=your-django-secret-key-here
-DEBUG=True
+Bash
 
-# MongoDB Connection
-# IMPORTANT: Ensure this URI matches your running MongoDB instance
-MONGO_URI=mongodb://localhost:27017/
-MONGO_DATABASE=public_data_explorer
-MONGO_COLLECTION_CACHE=sparql_cache
-```
+# .env file example
+SECRET_KEY='your-secret-key-here'
 
-### Step 4: Run the Application
+# MongoDB Connection Details
+# Use a full connection string (e.g., from MongoDB Atlas or local server)
+MONGO_URI='mongodb://<USER>:<PASSWORD>@<HOST>:<PORT>/'
+MONGO_DATABASE='data_explorer_db'
 
-```bash
-# Apply Django migrations (for internal auth/admin tables)
+# Optional: Set connection details for a specific SPARQL endpoint if needed
+SPARQL_ENDPOINT='http://dbpedia.org/sparql'
+🏃 Running the Application
+1. Run Migrations
+Apply Django's initial migrations to your MongoDB instance. This creates the necessary core collections (auth_user, django_session, __schema__).
+
+Bash
+
 python manage.py migrate
+2. Create Superuser (Optional)
+Create an admin user to access the Django Administration panel.
 
-# Start the Django development server
+Bash
+
+python manage.py createsuperuser
+3. Start the Server
+Bash
+
 python manage.py runserver
-```
+The application will be accessible at http://127.0.0.1:8000/.
 
-The application will now be running at `http://127.0.0.1:8000/`.
+🧩 Key Technologies
+Technology	Role
+Python 3.11	Runtime Environment (Conda controlled)
+Django 4.2.11	Web Framework (LTS version)
+Djongo	ORM Connector (Django ➡️ MongoDB)
+PyMongo	Native MongoDB Driver (Used for custom cache)
+SPARQLWrapper	SPARQL Query Client
+Conda	Environment and Dependency Manager
+python-decouple	Configuration/Secret Management
 
------
+Export to Sheets
+🤝 Contribution
+If you plan to scale this project, consider using the environment.yml file for precise environment recreation and ensuring any new dependencies are added to both requirements.txt and the environment.yml (via pip freeze and conda env export).
 
-## 🚀 Usage
-
-Access the application in your browser and check the **MongoDB Cache Status** in the top right corner. It should report **"Connected ✅"** if your `.env` and MongoDB server are correctly configured.
-
-### A. QID & Property Lookup Example
-
-This is the recommended starting point for basic exploration.
-
-| Field | Example Input | Description |
-| :--- | :--- | :--- |
-| **Wikidata QID** | `Q30` | Target entity (e.g., United States of America). |
-| **Property IDs** | `P31,P1082,P6` | Properties to retrieve (e.g., instance of, population, head of government). |
-
-### B. Raw SPARQL Query Example
-
-For advanced queries and aggregates.
-
-```sparql
-SELECT ?item ?itemLabel WHERE {
-  ?item wdt:P31 wd:Q5 . 
-  SERVICE wikibase:label { bd:serviceParam wikibase:language "[AUTO_LANGUAGE],en" . } 
-} 
-LIMIT 10
-```
-
-### Cache Management
-
-  * When a query is executed for the first time, `data_service.py` stores the result in MongoDB with a timestamp.
-  * MongoDB's built-in **TTL index** on the `sparql_cache` collection automatically handles the deletion of documents older than 24 hours.
-  * Subsequent identical queries retrieve data from the cache, resulting in **significantly faster load times**.
-
------
-
-## 🤝 Contributing
-
-Contributions are welcome\! Please open an issue or submit a pull request for any bug fixes, feature additions, or improvements to the documentation.
-
-1.  Fork the repository.
-2.  Create your feature branch (`git checkout -b feature/AmazingFeature`).
-3.  Commit your changes (`git commit -m 'Add some AmazingFeature'`).
-4.  Push to the branch (`git push origin feature/AmazingFeature`).
-5.  Open a Pull Request.
-
------
-
-## 📜 License
-
-Distributed under the MIT License. See `LICENSE` for more information.
-
------
-
-## 👤 Author
-
-  * **[Your Name / GitHub Username]** - *Developer*
-      * [Link to your portfolio or LinkedIn (Optional)]
+© 2025 [Your Name/Company Name]
