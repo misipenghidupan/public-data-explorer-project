@@ -7,9 +7,9 @@ A robust web application designed to query and explore public data from **Wikida
 
 ## 🌟 Features
 
-  * **Dual Query Interface:** Seamlessly switch between **QID/Property Lookup** (for quick exploration) and **Raw SPARQL Query** (for advanced users).
-  * **Intelligent Caching:** Implements a **24-Hour TTL cache** via **PyMongo**, reducing latency and load on the external Wikidata API for repeated queries.
-  * **Dynamic Results:** The frontend renders columns and rows entirely dynamically based on the variables returned by the SPARQL query (using a custom Django template filter).
+  * **Dual Query Interface:** Seamlessly switch between **QID/Property Lookup** (for quick exploration) and **Raw SPARQL Query** (for advanced users).\
+  * **Intelligent Caching:** Implements a **24-Hour TTL cache** via **PyMongo**, reducing latency and load on the external Wikidata API for repeated queries.\
+  * **Dynamic Results:** The frontend renders columns and rows entirely dynamically based on the variables returned by the SPARQL query (using a custom Django template filter).\
   * **Service Layer Separation:** Clean separation of concerns between Views, Business Logic, and Data Access (`data_service.py` handles PyMongo and SPARQLWrapper).
 
 -----
@@ -121,8 +121,8 @@ LIMIT 10
 
 ### Cache Management
 
-  \* When a query is executed for the first time, `data_service.py` stores the result in MongoDB with a timestamp.
-  \* MongoDB's built-in **TTL index** on the `sparql_cache` collection automatically handles the deletion of documents older than 24 hours.
+  \* When a query is executed for the first time, `data_service.py` stores the result in MongoDB with a timestamp.\
+  \* MongoDB's built-in **TTL index** on the `sparql_cache` collection automatically handles the deletion of documents older than 24 hours.\
   \* Subsequent identical queries retrieve data from the cache, resulting in **significantly faster load times**.
 
 -----
@@ -131,10 +131,10 @@ LIMIT 10
 
 Contributions are welcome\! Please open an issue or submit a pull request for any bug fixes, feature additions, or improvements to the documentation.
 
-1.  Fork the repository.
-2.  Create your feature branch (`git checkout -b feature/AmazingFeature`).
-3.  Commit your changes (`git commit -m 'Add some AmazingFeature'`).
-4.  Push to the branch (`git push origin feature/AmazingFeature`).
+1.  Fork the repository.\
+2.  Create your feature branch (`git checkout -b feature/AmazingFeature`).\
+3.  Commit your changes (`git commit -m 'Add some AmazingFeature'`).\
+4.  Push to the branch (`git push origin feature/AmazingFeature`).\
 5.  Open a Pull Request.
 
 -----
