@@ -1,0 +1,146 @@
+{% load app_filters %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Public Data Explorer</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background-color: #f4f4f9; }
+        .container { max-width: 1200px; margin: auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        h1 { text-align: center; color: #333; }
+        .form-toggle { margin-bottom: 20px; text-align: center; }
+        .form-toggle button { padding: 10px 20px; margin: 0 5px; cursor: pointer; border: 1px solid #ccc; background-color: #eee; border-radius: 4px; }
+        .form-toggle button.active { background-color: #007bff; color: white; border-color: #007bff; }
+        .query-form { border: 1px solid #ddd; padding: 15px; border-radius: 4px; margin-bottom: 20px; }
+        .query-form label { display: block; margin-bottom: 5px; font-weight: bold; }
+        .query-form input[type="text"], .query-form textarea { width: 100%; padding: 8px; margin-bottom: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+        .query-form textarea { min-height: 150px; resize: vertical; }
+        .query-form button { background-color: #28a745; color: white; padding: 10px 15px; border: none; border-radius: 4px; cursor: pointer; font-size: 1em; }
+        .query-form button:hover { background-color: #218838; }
+        .error { color: red; font-weight: bold; margin-bottom: 15px; border: 1px solid red; padding: 10px; border-radius: 4px; background-color: #ffeeee; }
+        .mongo-status { text-align: right; font-size: 0.9em; margin-bottom: 10px; }
+        .mongo-status .connected { color: green; }
+        .mongo-status .disconnected { color: orange; }
+        .results-table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        .results-table th, .results-table td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        .results-table th { background-color: #f2f2f2; }
+        .results-container { overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Wikidata Explorer</h1>
+        
+        <div class="mongo-status">
+            MongoDB Cache Status: 
+            {% if is_db_connected %}
+                <span class="connected">Connected ✅</span>
+            {% else %}
+                <span class="disconnected">Disconnected (No Caching) ⚠️</span>
+            {% endif %}
+        </div>
+
+        {% if error_message %}
+            <div class="error">
+                Query Failed: {{ error_message }}
+            </div>
+        {% endif %}
+
+        <div class="form-toggle">
+            <button id="qid-btn" onclick="toggleForm('qid')">QID & Property Lookup</button>
+            <button id="sparql-btn" onclick="toggleForm('sparql')">Raw SPARQL Query</button>
+        </div>
+
+        <div id="qid-form" class="query-form" style="display: none;">
+            <h2>QID & Property Lookup</h2>
+            <form method="post">
+                {% csrf_token %}
+                <input type="hidden" name="query_type" value="qid">
+                
+                <label for="qid_input">Wikidata QID (e.g., Q30):</label>
+                <input type="text" id="qid_input" name="qid_input" value="{{ qid_input }}" required>
+                
+                <label for="properties_input">Comma-separated Property IDs (e.g., P31,P1082):</label>
+                <input type="text" id="properties_input" name="properties_input" value="{{ properties_input }}" required>
+                
+                <button type="submit">Execute QID Query</button>
+            </form>
+        </div>
+
+        <div id="sparql-form" class="query-form" style="display: none;">
+            <h2>Raw SPARQL Query</h2>
+            <form method="post">
+                {% csrf_token %}
+                <input type="hidden" name="query_type" value="sparql">
+                
+                <label for="sparql_query_input">SPARQL Query:</label>
+                <textarea id="sparql_query_input" name="sparql_query_input" required>{{ sparql_query_input }}</textarea>
+                
+                <button type="submit">Execute SPARQL Query</button>
+            </form>
+        </div>
+
+        {% if results %}
+        <h2>Query Results ({{ results|length }} rows)</h2>
+        <div class="results-container">
+            <table class="results-table">
+                <thead>
+                    <tr>
+                        {% for col in head_vars %}
+                            <th>{{ col }}</th>
+                        {% endfor %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in results %}
+                    <tr>
+                        {% for col in head_vars %}
+                            <td>
+                                {{ row|get_item:col }}
+                            </td>
+                        {% endfor %}
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% elif query_type and not error_message %}
+            <p>No results found for the executed query.</p>
+        {% endif %}
+
+    </div>
+
+    <script>
+        // Client-side JS to toggle between QID and SPARQL forms
+        function toggleForm(type) {
+            const qidForm = document.getElementById('qid-form');
+            const sparqlForm = document.getElementById('sparql-form');
+            const qidBtn = document.getElementById('qid-btn');
+            const sparqlBtn = document.getElementById('sparql-btn');
+
+            if (type === 'qid') {
+                qidForm.style.display = 'block';
+                sparqlForm.style.display = 'none';
+                qidBtn.classList.add('active');
+                sparqlBtn.classList.remove('active');
+            } else if (type === 'sparql') {
+                qidForm.style.display = 'none';
+                sparqlForm.style.display = 'block';
+                qidBtn.classList.remove('active');
+                sparqlBtn.classList.add('active');
+            }
+        }
+
+        // Set the initial state based on the context variable from Django
+        document.addEventListener('DOMContentLoaded', function() {
+            const initialType = "{{ query_type }}";
+            if (initialType) {
+                toggleForm(initialType);
+            } else {
+                toggleForm('qid'); // Default to QID view if no query has been run
+            }
+        });
+    </script>
+</body>
+</html>

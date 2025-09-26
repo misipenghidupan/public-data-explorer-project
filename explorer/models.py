@@ -1,0 +1,1 @@
+# Intentionally empty as per standard Django structure, data logic is in data_service.py
