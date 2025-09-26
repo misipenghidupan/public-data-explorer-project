@@ -1,6 +1,7 @@
 import os
 from pathlib import Path
 from decouple import config
+from django.conf import settings
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -54,13 +55,24 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'data_explorer.wsgi.application'
 
-# Database (Default settings, not used for the actual data explorer)
+# DATABASE SETTING
+
+# data_explorer/settings.py
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'ENGINE': 'djongo',
+        'NAME': config('MONGO_DATABASE'),
+        'CLIENT': {
+            'host': config('MONGO_URI'),
+            # Ensure the necessary config calls are also present outside this block
+        }
     }
 }
+
+# The MONGO_URI and MONGO_DATABASE variables must still be loaded by decouple:
+# MONGO_URI = config('MONGO_URI')
+# MONGO_DATABASE = config('MONGO_DATABASE') 
+# ... etc.
 
 # Password validation
 AUTH_PASSWORD_VALIDATORS = [

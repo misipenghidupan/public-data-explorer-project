@@ -1,0 +1,54 @@
+# ------------------------------------
+# 1. ENVIRONMENT / DEPENDENCY FILES
+# ------------------------------------
+# Ignore standard Python virtual environments
+venv/
+.venv/
+
+# Ignore the local Conda environment directory
+conda_env/
+
+# Ignore the standard pip lock file (keep requirements.txt)
+# The file that you will commit is requirements.txt
+# requirements.txt is kept so others can install dependencies via pip
+# but we ignore other auto-generated files like requirements.lock
+requirements.lock 
+Pipfile.lock 
+
+# Dependency caches
+*.egg-info/
+.pytest_cache/
+.tox/
+
+# ------------------------------------
+# 2. DJANGO & DATABASE FILES
+# ------------------------------------
+# Ignore the default local database file
+db.sqlite3
+
+# Ignore compiled Python files
+*.pyc
+__pycache__/
+
+# Ignore Django's internal media and static folders used in development
+/static/
+/media/
+
+# ------------------------------------
+# 3. SENSITIVE DATA & CONFIGURATION
+# ------------------------------------
+# CRUCIAL: NEVER commit your secrets file!
+.env
+
+# ------------------------------------
+# 4. IDE / OS FILES
+# ------------------------------------
+# Operating System files
+.DS_Store
+Thumbs.db
+
+# Common IDE files (VS Code, PyCharm, Sublime Text)
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
