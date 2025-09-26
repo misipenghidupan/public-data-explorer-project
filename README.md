@@ -1,3 +1,4 @@
+
 # Public Data Explorer (Django / Wikidata SPARQL)
 
 🛡️ **Version:** beta-1.1.0 | 🐍 **Python:** 3.11 | 🌐 **Framework:** Django **4.2.11**
@@ -50,3 +51,101 @@ conda env create -f environment.yml --prefix ./conda_env
 
 # 3. Activate the new local environment
 conda activate ./conda_env
+````
+
+### Step 2: Install Dependencies
+
+All necessary Conda-available packages are installed via the `.yml` file. We use `pip` to install the remaining packages (like `djongo`) from the committed `requirements.txt`.
+
+```bash
+# Install remaining dependencies from PyPI
+pip install -r requirements.txt
+```
+
+### Step 3: Configure Environment (`.env`)
+
+Create a **`.env`** file in the project root directory and add the following configuration variables. This is crucial for security and database connectivity.
+
+```ini
+# .env
+SECRET_KEY=your-django-secret-key-here
+DEBUG=True
+
+# MongoDB Connection
+# IMPORTANT: Ensure this URI matches your running MongoDB instance
+MONGO_URI=mongodb://localhost:27017/
+MONGO_DATABASE=public_data_explorer
+MONGO_COLLECTION_CACHE=sparql_cache
+```
+
+### Step 4: Run the Application
+
+**Ensure your `conda_env` is active** before running server commands.
+
+```bash
+# Apply Django migrations (for internal auth/admin tables)
+python manage.py migrate
+
+# Start the Django development server
+python manage.py runserver
+```
+
+The application will now be running at `http://127.0.0.1:8000/`.
+
+-----
+
+## 🚀 Usage
+
+Access the application in your browser and check the **MongoDB Cache Status** in the top right corner. It should report **"Connected ✅"** if your `.env` and MongoDB server are correctly configured.
+
+### A. QID & Property Lookup Example
+
+This is the recommended starting point for basic exploration.
+
+| Field | Example Input | Description |
+| :--- | :--- | :--- |
+| **Wikidata QID** | `Q30` | Target entity (e.g., United States of America). |
+| **Property IDs** | `P31,P1082,P6` | Properties to retrieve (e.g., instance of, population, head of government). |
+
+### B. Raw SPARQL Query Example
+
+For advanced queries and aggregates.
+
+```sparql
+SELECT ?item ?itemLabel WHERE {
+  ?item wdt:P31 wd:Q5 . 
+  SERVICE wikibase:label { bd:serviceParam wikibase:language "[AUTO_LANGUAGE],en" . } 
+} 
+LIMIT 10
+```
+
+### Cache Management
+
+  \* When a query is executed for the first time, `data_service.py` stores the result in MongoDB with a timestamp.
+  \* MongoDB's built-in **TTL index** on the `sparql_cache` collection automatically handles the deletion of documents older than 24 hours.
+  \* Subsequent identical queries retrieve data from the cache, resulting in **significantly faster load times**.
+
+-----
+
+## 🤝 Contributing
+
+Contributions are welcome\! Please open an issue or submit a pull request for any bug fixes, feature additions, or improvements to the documentation.
+
+1.  Fork the repository.
+2.  Create your feature branch (`git checkout -b feature/AmazingFeature`).
+3.  Commit your changes (`git commit -m 'Add some AmazingFeature'`).
+4.  Push to the branch (`git push origin feature/AmazingFeature`).
+5.  Open a Pull Request.
+
+-----
+
+## 📜 License
+
+Distributed under the MIT License. See `LICENSE` for more information.
+
+-----
+
+## 👤 Author
+
+  \* **[Your Name / GitHub Username]** - *Developer*
+      \* [Link to your portfolio or LinkedIn (Optional)]
