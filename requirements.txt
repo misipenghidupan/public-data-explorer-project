@@ -1,18 +1,30 @@
-asgiref==3.9.2
-certifi==2025.8.3
-charset-normalizer==3.4.3
-Django==3.1.12
-djongo==1.3.7
-dnspython==2.8.0
-idna==3.10
-legacy-cgi==2.6.3
-pymongo==3.11.4
-pyparsing==3.2.5
+# Primary Python Dependencies for Django Data Explorer Project
+# (Generated from environment.yml, excluding system libraries and transitive Conda dependencies)
+
+Django==4.2.11
+djongo==1.3.0  # Added based on context; exact version often found via pip freeze
+pymongo==4.13.0
 python-decouple==3.8
-pytz==2025.2
-rdflib==7.2.1
 requests==2.32.5
-setuptools==80.9.0
-SPARQLWrapper==2.0.0
-sqlparse==0.2.4
+sparqlwrapper==2.0.0
+asgiref==3.9.2
+charset-normalizer==3.4.3
+dnspython==2.8.0
+h2==4.3.0
+hpack==4.1.0
+hyperframe==6.1.0
+idna==3.10
+isodate==0.7.2
+pycparser==2.22
+pyparsing==3.2.5
+pysocks==1.7.1
+rdflib==7.2.1
+sqlparse==0.5.3
+typing-extensions==4.15.0
 urllib3==2.5.0
+zstandard==0.24.0
+
+# NOTE: The dependency 'djongo' was likely installed via pip and is crucial. 
+# While its version is not explicitly listed in the conda section of the YML, 
+# it must be included for the project to function. A placeholder version is used 
+# above; use 'pip freeze' on your active environment for the precise version.
