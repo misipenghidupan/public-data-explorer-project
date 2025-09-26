@@ -1,98 +1,52 @@
-🌐 Django Data Explorer (MongoDB/SPARQL)
-Version: beta-1.1.0
+# Public Data Explorer (Django / Wikidata SPARQL)
 
-This project is a Django web application designed to explore public data (via a SPARQL endpoint) using MongoDB as the primary database backend and a robust Conda environment for dependency management.
+🛡️ **Version:** beta-1.1.0 | 🐍 **Python:** 3.11 | 🌐 **Framework:** Django **4.2.11**
 
-🚀 Features
-MongoDB Backend: Uses djongo to enable the standard Django ORM, authentication, and sessions with MongoDB.
+A robust web application designed to query and explore public data from **Wikidata's SPARQL endpoint**. This project utilizes a **Service Layer architecture** and implements a **Time-To-Live (TTL) caching mechanism** using MongoDB for performance optimization.
 
-Data Exploration: Communicates with external SPARQL endpoints using SPARQLWrapper.
+## 🌟 Features
 
-Custom Caching: Implements a high-performance caching layer using raw pymongo for SPARQL query results.
+  * **Dual Query Interface:** Seamlessly switch between **QID/Property Lookup** (for quick exploration) and **Raw SPARQL Query** (for advanced users).
+  * **Intelligent Caching:** Implements a **24-Hour TTL cache** via **PyMongo**, reducing latency and load on the external Wikidata API for repeated queries.
+  * **Dynamic Results:** The frontend renders columns and rows entirely dynamically based on the variables returned by the SPARQL query (using a custom Django template filter).
+  * **Service Layer Separation:** Clean separation of concerns between Views, Business Logic, and Data Access (`data_service.py` handles PyMongo and SPARQLWrapper).
 
-Secure Configuration: Uses python-decouple to manage sensitive settings via a local .env file.
+-----
 
-Isolated Environment: Managed by Conda to ensure specific Python and package versions are maintained.
+## 🏗️ Architecture
 
-⚙️ Prerequisites
-Before running the project, ensure you have the following installed:
+The project adheres to a Service Layer pattern for maintainability and testability.
 
-Git
+| Component | Technology | Responsibility |
+| :--- | :--- | :--- |
+| **View Layer** (`views.py`) | Django Views | Handles HTTP requests, calls the Service Layer, and manages template context. |
+| **Service Layer** (`explorer_service.py`) | Python | Business Logic: Transforms QID/Property input into SPARQL queries. Coordinates with the Data Layer. |
+| **Data Layer** (`data_service.py`) | PyMongo, SPARQLWrapper | External Access: Manages MongoDB caching (TTL Index) and executes external SPARQL queries. |
+| **Frontend** (`data_explorer.html`) | HTML, Django Templates | Dynamic Rendering: Uses `{{ row|get_item:col }}` to iterate and display variable-driven results. |
 
-Miniconda or Anaconda (recommended for environment management)
+-----
 
-MongoDB Server (running locally or a connection string from MongoDB Atlas)
+## ⚙️ Local Setup and Installation
 
-📦 Project Setup
-Follow these steps to clone the repository and set up your isolated Conda environment.
+### Prerequisites
 
-1. Clone Repository
-Bash
+You must have the following installed and running:
 
-git clone <YOUR_REPOSITORY_URL> public-data-explorer-project
+  * **Conda** (Miniconda or Anaconda)
+  * **Git**
+  * **MongoDB Server** (running and accessible)
+
+### Step 1: Clone and Activate Conda Environment
+
+We use Conda's prefix method to create an isolated environment locally within the project directory.
+
+```bash
+# 1. Clone the repository
+git clone [https://github.com/YourUsername/public-data-explorer.git](https://github.com/YourUsername/public-data-explorer.git)
 cd public-data-explorer-project
-2. Create and Activate Conda Environment
-We use the provided environment.yml to recreate the exact environment, including the compatible Python 3.11 version.
 
-Bash
+# 2. Create and activate the Conda environment using the lock file
+conda env create -f environment.yml --prefix ./conda_env
 
-# Create the environment using the YAML file
-conda env create -f environment.yml
-
-# Activate the newly created environment (important!)
+# 3. Activate the new local environment
 conda activate ./conda_env
-3. Install Pip-Only Dependencies
-Some packages, like djongo, are installed via pip within the active Conda environment.
-
-Bash
-
-pip install -r requirements.txt
-4. Configure Environment Variables
-Create a file named .env in the root directory and add your connection strings and secrets.
-
-Bash
-
-# .env file example
-SECRET_KEY='your-secret-key-here'
-
-# MongoDB Connection Details
-# Use a full connection string (e.g., from MongoDB Atlas or local server)
-MONGO_URI='mongodb://<USER>:<PASSWORD>@<HOST>:<PORT>/'
-MONGO_DATABASE='data_explorer_db'
-
-# Optional: Set connection details for a specific SPARQL endpoint if needed
-SPARQL_ENDPOINT='http://dbpedia.org/sparql'
-🏃 Running the Application
-1. Run Migrations
-Apply Django's initial migrations to your MongoDB instance. This creates the necessary core collections (auth_user, django_session, __schema__).
-
-Bash
-
-python manage.py migrate
-2. Create Superuser (Optional)
-Create an admin user to access the Django Administration panel.
-
-Bash
-
-python manage.py createsuperuser
-3. Start the Server
-Bash
-
-python manage.py runserver
-The application will be accessible at http://127.0.0.1:8000/.
-
-🧩 Key Technologies
-Technology	Role
-Python 3.11	Runtime Environment (Conda controlled)
-Django 4.2.11	Web Framework (LTS version)
-Djongo	ORM Connector (Django ➡️ MongoDB)
-PyMongo	Native MongoDB Driver (Used for custom cache)
-SPARQLWrapper	SPARQL Query Client
-Conda	Environment and Dependency Manager
-python-decouple	Configuration/Secret Management
-
-Export to Sheets
-🤝 Contribution
-If you plan to scale this project, consider using the environment.yml file for precise environment recreation and ensuring any new dependencies are added to both requirements.txt and the environment.yml (via pip freeze and conda env export).
-
-© 2025 [Your Name/Company Name]
