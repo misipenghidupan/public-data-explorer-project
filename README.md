@@ -93,14 +93,12 @@ Use this simple query to test connectivity and caching:
 ```
 
 # Find a few basic properties of the Earth (Q2)
-
 SELECT ?property ?propertyLabel ?value ?valueLabel WHERE {
-wd:Q2 ?property ?value.
-
-# Only select human-readable properties (statements)
-
-FILTER(STRSTARTS(STR(?property), "[http://www.wikidata.org/prop/direct/](https://www.google.com/search?q=http://www.wikidata.org/prop/direct/)"))
-
-SERVICE wikibase:label { bd:serviceParam wikibase:language "en". }
+  wd:Q2 ?property ?value.
+  
+  # Only select human-readable properties (statements)
+  FILTER(STRSTARTS(STR(?property), "[http://www.wikidata.org/prop/direct/](http://www.wikidata.org/prop/direct/)"))
+  
+  SERVICE wikibase:label { bd:serviceParam wikibase:language "en". }
 }
 LIMIT 20
