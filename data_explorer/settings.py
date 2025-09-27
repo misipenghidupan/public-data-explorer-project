@@ -1,26 +1,19 @@
-"""
-Django Settings for Wikidata Explorer - Post-Architectural Refactor
-**Target: Django 5.1.4, PyMongo 4.10.1**
-"""
 import os
-from pathlib import Path
-from django.core.management.utils import get_random_secret_key
-import logging.config
-import sys
-import time
+from decouple import config
 
-BASE_DIR = Path(__file__).resolve().parent.parent
+# Build paths inside the project like this: os.path.join(BASE_DIR, ...)
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', get_random_secret_key())
+SECRET_KEY = config('SECRET_KEY', default='django-insecure-default-key-for-dev')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.environ.get('DJANGO_DEBUG', 'False').lower() == 'true'
+DEBUG = config('DEBUG', default=True, cast=bool)
 
-ALLOWED_HOSTS = os.environ.get('DJANGO_ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
+ALLOWED_HOSTS = ['*']
 
-# --- Application definition ---
-# Note: You must ensure 'corsheaders' is compatible with Django 5.1.4
+# Application definition
+
 INSTALLED_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',
@@ -28,15 +21,11 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'corsheaders', 
-    'explorer',
+    'explorer', # Your app
 ]
 
-# Note: You must ensure 'whitenoise.middleware.WhiteNoiseMiddleware' is correct for Django 5.1.4
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
-    'whitenoise.middleware.WhiteNoiseMiddleware',
-    'corsheaders.middleware.CorsMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -45,61 +34,134 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
-ROOT_URLCONF = 'wikidata_explorer.urls'
-WSGI_APPLICATION = 'wikidata_explorer.wsgi.application'
+ROOT_URLCONF = 'data_explorer.urls'
 
-# --- DATABASE CONFIGURATION ---
-# SQLite for Django ORM
+TEMPLATES = [
+    {
+        'BACKEND': 'django.template.backends.django.DjangoTemplates',
+        'DIRS': [os.path.join(BASE_DIR, 'templates')],
+        'APP_DIRS': True,
+        'OPTIONS': {
+            'context_processors': [
+                'django.template.context_processors.debug',
+                'django.template.context_processors.request',
+                'django.contrib.auth.context_processors.auth',
+                'django.contrib.messages.context_processors.messages',
+            ],
+        },
+    },
+]
+
+WSGI_APPLICATION = 'data_explorer.wsgi.application'
+
+
+# Database
+# https://docs.djangoproject.com/en/5.0/ref/settings/#databases
+
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'NAME': os.path.join(BASE_DIR, 'db.sqlite3'),
     }
 }
 
-# --- MONGODB CONFIGURATION (PyMongo 4.x) ---
-# Used by CacheManager
-MONGODB_SETTINGS = {
-    'CONNECTION_STRING': os.environ.get('MONGODB_CONNECTION_STRING', 'mongodb://localhost:27017/'),
-    'DATABASE_NAME': os.environ.get('MONGODB_DATABASE', 'wikidata_explorer'),
-    'CACHE_COLLECTION': os.environ.get('MONGODB_CACHE_COLLECTION', 'sparql_cache'),
-    'CACHE_TTL_SECONDS': int(os.environ.get('MONGODB_CACHE_TTL', '3600')),
-    'CONNECTION_POOL': {
-        'maxPoolSize': int(os.environ.get('MONGODB_MAX_POOL_SIZE', '50')),
-        'serverSelectionTimeoutMS': int(os.environ.get('MONGODB_SERVER_TIMEOUT', '5000')),
-        'connectTimeoutMS': int(os.environ.get('MONGODB_CONNECT_TIMEOUT', '10000')),
+
+# Password validation
+# https://docs.djangoproject.com/en/5.0/ref/settings/#auth-password-validators
+
+AUTH_PASSWORD_VALIDATORS = [
+    {
+        'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
     },
-    'RETRY_WRITES': os.environ.get('MONGODB_RETRY_WRITES', 'true').lower() == 'true',
-    'RETRY_READS': os.environ.get('MONGODB_RETRY_READS', 'true').lower() == 'true',
-}
+    {
+        'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
+    },
+    {
+        'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
+    },
+    {
+        'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
+    },
+]
 
-# --- SPARQL SERVICE CONFIGURATION ---
-SPARQL_SETTINGS = {
-    'ENDPOINT_URL': os.environ.get('SPARQL_ENDPOINT', 'https://query.wikidata.org/sparql'),
-    'TIMEOUT_SECONDS': int(os.environ.get('SPARQL_TIMEOUT', '20')),
-}
 
-# --- LOGGING CONFIGURATION ---
-# (Using your full, detailed logging block)
-LOGGING_CONFIG = None
-LOGGING = { 
-    'version': 1, 'disable_existing_loggers': False,
+# Internationalization
+# https://docs.djangoproject.com/en/5.0/topics/i18n/
+
+LANGUAGE_CODE = 'en-us'
+
+TIME_ZONE = 'UTC'
+
+USE_I18N = True
+
+USE_TZ = True
+
+
+# Static files (CSS, JavaScript, Images)
+# https://docs.djangoproject.com/en/5.0/howto/static-files/
+
+STATIC_URL = '/static/'
+STATICFILES_DIRS = [
+    os.path.join(BASE_DIR, 'static'),
+]
+
+# Default primary key field type
+# https://docs.djangoproject.com/en/5.0/ref/settings/#default-auto-field
+
+DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+
+# --- SPARQL Endpoint Setting ---
+# This is the endpoint for the Wikidata Query Service.
+SPARQL_ENDPOINT = config('SPARQL_ENDPOINT', default='https://query.wikidata.org/sparql')
+
+
+# --- MongoDB Settings for Caching ---
+# We define MONGODB_SETTINGS as a dictionary because views.py expects this structure.
+MONGODB_SETTINGS = {
+    'URI': config('MONGODB_URI', default='mongodb://localhost:27017/'),
+    'DATABASE': config('MONGODB_DATABASE', default='wikidata_explorer_new'),
+    'CACHE_COLLECTION': config('MONGODB_CACHE_COLLECTION', default='explorer_cache_data'),
+    'TTL_SECONDS': config('MONGODB_TTL_SECONDS', default=60 * 60 * 24, cast=int), # Cache lifetime (24 hours)
+}
+# The individual settings (used by cache_manager.py) are still needed for now, 
+# until cache_manager.py is also updated to use the MONGODB_SETTINGS dictionary.
+MONGODB_URI = MONGODB_SETTINGS['URI']
+MONGODB_DATABASE = MONGODB_SETTINGS['DATABASE']
+MONGODB_CACHE_COLLECTION = MONGODB_SETTINGS['CACHE_COLLECTION']
+MONGODB_TTL_SECONDS = MONGODB_SETTINGS['TTL_SECONDS']
+
+
+# --- Logging Settings ---
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
     'formatters': {
-        'json': {'()': 'pythonjsonlogger.jsonlogger.JsonFormatter', 'format': '%(asctime)s %(name)s %(levelname)s %(message)s'}
+        'verbose': {
+            'format': '{"asctime": "%(asctime)s", "name": "%(name)s", "levelname": "%(levelname)s", "message": "%(message)s"}'
+        },
     },
     'handlers': {
-        'console': {'class': 'logging.StreamHandler', 'formatter': 'json'},
-        'file': {'class': 'logging.handlers.RotatingFileHandler', 'filename': BASE_DIR / 'logs' / 'wikidata_explorer.log', 'formatter': 'json'},
+        'console': {
+            'class': 'logging.StreamHandler',
+            'formatter': 'verbose',
+        },
     },
-    'root': {'handlers': ['console'], 'level': 'INFO'},
+    'root': {
+        'handlers': ['console'],
+        'level': 'WARNING',
+    },
     'loggers': {
-        'explorer': {'handlers': ['console', 'file'], 'level': 'DEBUG' if DEBUG else 'INFO', 'propagate': False},
-        'pymongo': {'handlers': ['console', 'file'], 'level': 'WARNING', 'propagate': False},
+        'django': {
+            'handlers': ['console'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        'explorer': {
+            'handlers': ['console'],
+            'level': 'INFO',
+            'propagate': False,
+        },
     },
 }
-(BASE_DIR / 'logs').mkdir(exist_ok=True)
-logging.config.dictConfig(LOGGING)
-
-# --- DJANGO 5.1.4 SPECIFIC SETTINGS ---
-DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
-# ... (rest of your Django 5.1.4 configuration, including TEMPLATES, STATICFILES, etc.)

@@ -1,8 +1,12 @@
 from django.urls import path
-from .views import DataExplorerView
-
-app_name = 'explorer'
+from . import views
 
 urlpatterns = [
-    path('', DataExplorerView.as_view(), name='data_explorer'),
+    # Main View: Handles the root URL and loads the index.html template
+    path('', views.explorer_view, name='explorer_view'),
+
+    # API Endpoints (Must match the paths used by the JavaScript frontend)
+    path('api/execute/', views.execute_query, name='execute_query'),
+    path('api/save/', views.save_query, name='save_query'),
+    path('api/queries/', views.list_queries, name='list_queries'),
 ]

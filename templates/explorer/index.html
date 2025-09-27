@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wikidata SPARQL Explorer</title>
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Use Inter font -->
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f7f9fb;
+        }
+        /* Custom scrollbar for query editor and results */
+        .custom-scroll::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        .custom-scroll::-webkit-scrollbar-thumb {
+            background-color: #cbd5e1; /* slate-300 */
+            border-radius: 4px;
+        }
+        .custom-scroll::-webkit-scrollbar-track {
+            background-color: #f1f5f9; /* slate-100 */
+        }
+    </style>
+    <!-- Include the CSRF token, required for all POST requests -->
+    {% csrf_token %}
+</head>
+<body class="min-h-screen flex">
+
+    <!-- 1. Left Sidebar: Saved Queries (Sticky) -->
+    <aside id="saved-queries-sidebar" class="w-64 bg-white border-r border-gray-200 p-4 flex flex-col shadow-lg sticky top-0 h-screen overflow-y-auto custom-scroll">
+        <h2 class="text-xl font-bold text-gray-800 mb-4">Saved Queries</h2>
+        <div id="queries-list" class="space-y-2 flex-grow">
+            <!-- Queries will be dynamically injected here -->
+            <p class="text-sm text-gray-500">Loading queries...</p>
+        </div>
+        <button onclick="clearSavedQueries()" class="mt-4 w-full text-sm text-red-500 hover:text-red-700 py-2 border border-red-300 rounded-lg hover:bg-red-50 transition duration-150">Clear All Saved Queries</button>
+    </aside>
+
+    <!-- 2. Main Content Area -->
+    <main class="flex-grow p-8">
+        <h1 class="text-3xl font-extrabold text-gray-900 mb-6">Wikidata SPARQL Explorer</h1>
+
+        <!-- Query Editor Section -->
+        <div class="bg-white p-6 rounded-xl shadow-xl mb-8">
+            <h2 class="text-2xl font-semibold text-gray-800 mb-4">SPARQL Query Editor</h2>
+            
+            <textarea id="sparql-query" rows="10" 
+                      class="w-full p-4 border border-gray-300 rounded-lg resize-none text-gray-700 focus:ring-blue-500 focus:border-blue-500 transition duration-150"
+                      placeholder="Enter your SPARQL query here...">
+# Find all films directed by Christopher Nolan (Q61923)
+# Requires the item to be a film (Q11424) and have a publication date.
+SELECT ?film ?filmLabel ?date WHERE {
+  ?film wdt:P31 wd:Q11424.     # ?film is an instance of film
+  ?film wdt:P57 wd:Q61923.     # ?film is directed by Christopher Nolan
+  OPTIONAL { ?film wdt:P577 ?date. } # P577 (publication date) - optional field
+  SERVICE wikibase:label { bd:serviceParam wikibase:language "en". } # Force English label
+}
+ORDER BY DESC(?date)
+LIMIT 50
+            </textarea>
+            
+            <div class="flex space-x-4 mt-4">
+                <button onclick="executeQuery()" id="execute-button"
+                        class="px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg shadow-md hover:bg-blue-700 transition duration-200 active:scale-95">
+                    Execute Query
+                </button>
+                <button onclick="openSaveModal()"
+                        class="px-6 py-3 bg-green-600 text-white font-semibold rounded-lg shadow-md hover:bg-green-700 transition duration-200 active:scale-95">
+                    Save Query
+                </button>
+            </div>
+        </div>
+
+        <!-- Query Results Section (Toggle between Table and JSON) -->
+        <div class="bg-white p-6 rounded-xl shadow-xl">
+            <h2 class="text-2xl font-semibold text-gray-800 mb-4">Query Results</h2>
+
+            <!-- Tabs -->
+            <div class="flex border-b border-gray-200">
+                <button id="tab-table" onclick="showResultsTab('table')" 
+                        class="px-4 py-2 text-sm font-medium border-b-2 border-blue-600 text-blue-600 focus:outline-none">
+                    Table View
+                </button>
+                <button id="tab-json" onclick="showResultsTab('json')" 
+                        class="px-4 py-2 text-sm font-medium text-gray-500 border-b-2 border-transparent hover:text-gray-700 hover:border-gray-300 focus:outline-none">
+                    Raw JSON
+                </button>
+                <span id="result-status" class="ml-auto px-4 py-2 text-sm font-medium text-gray-500">Ready</span>
+            </div>
+
+            <!-- Tab Content: Table View -->
+            <div id="results-table-container" class="mt-4 max-h-96 overflow-auto custom-scroll">
+                <table id="results-table" class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50 sticky top-0 z-10">
+                        <!-- Table headers will be injected here -->
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200">
+                        <!-- Table rows will be injected here -->
+                    </tbody>
+                </table>
+                <p id="table-placeholder" class="text-gray-500 p-4 text-center">Execute a query to see results here.</p>
+            </div>
+
+            <!-- Tab Content: Raw JSON -->
+            <div id="results-json-container" class="mt-4 hidden max-h-96 overflow-auto custom-scroll">
+                <pre id="results-json" class="bg-gray-800 text-green-400 p-4 rounded-lg text-sm whitespace-pre-wrap"></pre>
+            </div>
+        </div>
+    </main>
+
+    <!-- 3. Custom Save Modal -->
+    <div id="save-modal" class="fixed inset-0 bg-gray-600 bg-opacity-75 hidden items-center justify-center z-50">
+        <div class="bg-white p-6 rounded-lg shadow-2xl w-full max-w-sm">
+            <h3 class="text-xl font-bold mb-4">Save Query</h3>
+            <label for="query-title" class="block text-sm font-medium text-gray-700 mb-2">Query Title:</label>
+            <input type="text" id="query-title" placeholder="e.g., European Capitals" 
+                   class="w-full p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 mb-4">
+            
+            <div class="flex justify-end space-x-3">
+                <button onclick="closeSaveModal()" class="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50">
+                    Cancel
+                </button>
+                <button onclick="saveQuery()" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">
+                    Save
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- JavaScript Logic -->
+    <script>
+        const queryTextarea = document.getElementById('sparql-query');
+        const executeButton = document.getElementById('execute-button');
+        const resultStatus = document.getElementById('result-status');
+        const resultsTableContainer = document.getElementById('results-table-container');
+        const resultsJsonContainer = document.getElementById('results-json-container');
+        const resultsJsonPre = document.getElementById('results-json');
+        const resultsTableBody = document.querySelector('#results-table tbody');
+        const resultsTableHead = document.querySelector('#results-table thead');
+        const savedQueriesList = document.getElementById('queries-list');
+        const saveModal = document.getElementById('save-modal');
+        const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+        const apiBaseUrl = '/api';
+
+        // --- MODAL FUNCTIONS ---
+        function openSaveModal() {
+            saveModal.classList.remove('hidden');
+            saveModal.classList.add('flex');
+            document.getElementById('query-title').focus();
+        }
+
+        function closeSaveModal() {
+            saveModal.classList.remove('flex');
+            saveModal.classList.add('hidden');
+            document.getElementById('query-title').value = '';
+        }
+
+        // --- UI & RENDERING FUNCTIONS ---
+        function showResultsTab(tab) {
+            document.getElementById('tab-table').classList.remove('border-blue-600', 'text-blue-600');
+            document.getElementById('tab-table').classList.add('border-transparent', 'text-gray-500', 'hover:text-gray-700', 'hover:border-gray-300');
+            
+            document.getElementById('tab-json').classList.remove('border-blue-600', 'text-blue-600');
+            document.getElementById('tab-json').classList.add('border-transparent', 'text-gray-500', 'hover:text-gray-700', 'hover:border-gray-300');
+            
+            resultsTableContainer.classList.add('hidden');
+            resultsJsonContainer.classList.add('hidden');
+
+            if (tab === 'table') {
+                document.getElementById('tab-table').classList.add('border-blue-600', 'text-blue-600');
+                document.getElementById('tab-table').classList.remove('border-transparent', 'text-gray-500', 'hover:text-gray-700', 'hover:border-gray-300');
+                resultsTableContainer.classList.remove('hidden');
+            } else {
+                document.getElementById('tab-json').classList.add('border-blue-600', 'text-blue-600');
+                document.getElementById('tab-json').classList.remove('border-transparent', 'text-gray-500', 'hover:text-gray-700', 'hover:border-gray-300');
+                resultsJsonContainer.classList.remove('hidden');
+            }
+        }
+
+        function renderTable(results) {
+            resultsTableHead.innerHTML = '';
+            resultsTableBody.innerHTML = '';
+            document.getElementById('table-placeholder').classList.add('hidden');
+
+            if (results.results.bindings.length === 0) {
+                document.getElementById('table-placeholder').textContent = 'Query executed successfully, but returned no results.';
+                document.getElementById('table-placeholder').classList.remove('hidden');
+                return;
+            }
+
+            // Create Headers
+            const headerRow = document.createElement('tr');
+            results.head.vars.forEach(v => {
+                const th = document.createElement('th');
+                th.className = 'px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider';
+                th.textContent = v;
+                headerRow.appendChild(th);
+            });
+            resultsTableHead.appendChild(headerRow);
+
+            // Create Rows
+            results.results.bindings.forEach(binding => {
+                const tr = document.createElement('tr');
+                tr.className = 'hover:bg-gray-50';
+                
+                results.head.vars.forEach(v => {
+                    const td = document.createElement('td');
+                    td.className = 'px-6 py-4 whitespace-nowrap text-sm text-gray-700';
+                    
+                    if (binding[v]) {
+                        // Display the label if available, otherwise the value
+                        td.textContent = binding[v].value;
+                        if (binding[v].type === 'uri') {
+                            const a = document.createElement('a');
+                            a.href = binding[v].value;
+                            a.target = '_blank';
+                            a.textContent = binding[v].value;
+                            td.textContent = ''; // Clear td content
+                            td.appendChild(a);
+                        }
+                    } else {
+                        td.textContent = '—';
+                    }
+                    tr.appendChild(td);
+                });
+                resultsTableBody.appendChild(tr);
+            });
+        }
+
+        function renderSavedQueries(queries) {
+            savedQueriesList.innerHTML = '';
+            if (queries.length === 0) {
+                savedQueriesList.innerHTML = '<p class="text-sm text-gray-500 p-2">No saved queries found.</p>';
+                return;
+            }
+
+            queries.forEach(q => {
+                const item = document.createElement('div');
+                item.className = 'p-3 bg-gray-50 hover:bg-gray-100 rounded-lg cursor-pointer transition duration-150 group';
+                item.innerHTML = `
+                    <p class="text-sm font-medium text-gray-800 group-hover:text-blue-600">${q.title}</p>
+                    <p class="text-xs text-gray-500 truncate">${q.query.substring(0, 50)}...</p>
+                `;
+                item.onclick = () => {
+                    queryTextarea.value = q.query;
+                    // Highlight the item visually if needed
+                };
+                savedQueriesList.appendChild(item);
+            });
+        }
+
+        // --- API & LOGIC FUNCTIONS ---
+        async function performApiCall(url, method = 'GET', data = null) {
+            const options = {
+                method: method,
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            };
+
+            if (method !== 'GET' && data) {
+                options.body = JSON.stringify(data);
+                // CRITICAL CSRF FIX: Include the token in all non-GET requests
+                options.headers['X-CSRFToken'] = csrfToken;
+            }
+            
+            try {
+                const response = await fetch(url, options);
+
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(`Server responded with ${response.status}: ${errorText}`);
+                }
+                
+                return await response.json();
+            } catch (error) {
+                console.error("API Call Error:", error);
+                resultStatus.textContent = "Network Error: Could not connect to the Django API.";
+                resultStatus.classList.remove('text-gray-500');
+                resultStatus.classList.add('text-red-600');
+                throw error;
+            }
+        }
+
+        async function executeQuery() {
+            const query = queryTextarea.value.trim();
+            if (!query) {
+                resultStatus.textContent = "Please enter a query.";
+                return;
+            }
+
+            resultStatus.textContent = "Executing...";
+            resultStatus.classList.remove('text-red-600', 'text-gray-500');
+            resultStatus.classList.add('text-blue-600');
+            
+            try {
+                const response = await performApiCall(`${apiBaseUrl}/execute/`, 'POST', { query });
+                
+                // Set Raw JSON content
+                resultsJsonPre.textContent = JSON.stringify(response, null, 2);
+                
+                // Render Table content
+                renderTable(response);
+
+                // Update status and select table view
+                resultStatus.textContent = `Query executed successfully (${response.results.bindings.length} results)`;
+                resultStatus.classList.remove('text-blue-600', 'text-red-600');
+                resultStatus.classList.add('text-green-600');
+                showResultsTab('table');
+
+            } catch (error) {
+                resultStatus.textContent = `Server Error: ${error.message || 'Check console for details.'}`;
+                resultStatus.classList.remove('text-blue-600', 'text-green-600');
+                resultStatus.classList.add('text-red-600');
+                resultsJsonPre.textContent = JSON.stringify({ error: error.message }, null, 2);
+            }
+        }
+
+        async function saveQuery() {
+            const title = document.getElementById('query-title').value.trim();
+            const query = queryTextarea.value.trim();
+
+            if (!title || !query) {
+                alert("Please enter a title and ensure the query editor is not empty.");
+                return;
+            }
+
+            closeSaveModal();
+
+            try {
+                resultStatus.textContent = "Saving query...";
+                resultStatus.classList.remove('text-red-600', 'text-green-600');
+                resultStatus.classList.add('text-blue-600');
+                
+                await performApiCall(`${apiBaseUrl}/save/`, 'POST', { title, query });
+                
+                resultStatus.textContent = `Query "${title}" saved successfully!`;
+                resultStatus.classList.remove('text-blue-600', 'text-red-600');
+                resultStatus.classList.add('text-green-600');
+                
+                loadSavedQueries(); // Refresh the list
+            } catch (error) {
+                resultStatus.textContent = `Error saving query: ${error.message}`;
+                resultStatus.classList.remove('text-blue-600', 'text-green-600');
+                resultStatus.classList.add('text-red-600');
+            }
+        }
+        
+        async function loadSavedQueries() {
+            try {
+                savedQueriesList.innerHTML = '<p class="text-sm text-gray-500 p-2">Loading...</p>';
+                const queries = await performApiCall(`${apiBaseUrl}/queries/`);
+                renderSavedQueries(queries);
+            } catch (error) {
+                savedQueriesList.innerHTML = '<p class="text-sm text-red-500 p-2">Failed to load queries.</p>';
+                console.error("Error loading saved queries:", error);
+            }
+        }
+
+        async function clearSavedQueries() {
+            if (!confirm('Are you sure you want to delete ALL saved queries? This cannot be undone.')) {
+                return;
+            }
+            try {
+                await performApiCall(`${apiBaseUrl}/clear/`, 'POST');
+                loadSavedQueries();
+                resultStatus.textContent = 'All saved queries cleared.';
+                resultStatus.classList.remove('text-red-600');
+                resultStatus.classList.add('text-green-600');
+            } catch (error) {
+                resultStatus.textContent = `Error clearing queries: ${error.message}`;
+                resultStatus.classList.remove('text-green-600');
+                resultStatus.classList.add('text-red-600');
+            }
+        }
+
+        // --- INITIALIZATION ---
+        window.onload = () => {
+            loadSavedQueries();
+        };
+
+        // Make clearSavedQueries available globally for the button
+        window.clearSavedQueries = clearSavedQueries;
+        window.executeQuery = executeQuery;
+        window.openSaveModal = openSaveModal;
+        window.saveQuery = saveQuery;
+        window.closeSaveModal = closeSaveModal;
+        window.showResultsTab = showResultsTab;
+    </script>
+</body>
+</html>

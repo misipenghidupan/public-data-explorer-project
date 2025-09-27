@@ -1,99 +1,106 @@
-# 🌐 Wikidata Explorer: The Semantic Web Query Tool (beta-2.0.0)
+# Public Data Explorer (Wikidata SPARQL Client)
 
-A powerful, stable, and highly performant web application for exploring the Wikidata knowledge graph using SPARQL. This **beta-2.0.0** release marks a major architectural refactoring, eliminating legacy dependencies and introducing native caching and robust error handling.
+This project is a Django-based web application that allows users to write and execute SPARQL queries against the public Wikidata endpoint. It features real-time results display, query persistence (saving to a local SQLite database), and caching (using MongoDB) to improve performance for repeated queries.
 
-## 🚀 Architectural Highlights (Beta 2.0.0)
+## 🚀 Key Features
 
-This release focuses entirely on stability, performance, and maintainability.
+* **SPARQL Editor:** Write and execute complex queries against the official Wikidata endpoint.
 
-- **Framework Upgrade:** Fully migrated to **Django 5.1.4 LTS**.
-- **Data Access Layer (DAL):** Complete removal of `djongo`. Switched to native **PyMongo 4.10.1** for all SPARQL result caching, ensuring decoupling and performance.
-- **Reliability:** Implemented a mandatory **20-second timeout** on all Wikidata SPARQL queries to prevent resource exhaustion.
-- **Bug Fix:** Integrated an intelligent `BIND` workaround in the Data Service to resolve the long-standing Wikidata server error when querying numerical literals (e.g., P1082 Population) alongside labels.
-- **Resilience:** Comprehensive presentation-layer error handling for network errors, timeouts, and server-side SPARQL errors, ensuring graceful degradation and user-friendly messages.
-- **Caching:** SPARQL results are cached in MongoDB with automatic **TTL (Time-To-Live) indexing** for expiration control.
+* **MongoDB Caching:** Query results are cached for a Time-To-Live (TTL) period, significantly speeding up subsequent requests for the same data.
+
+* **Persistence:** Saved queries are stored in a local SQLite database and are instantly accessible in the sidebar.
+
+* **Responsive UI:** A modern, two-column interface built with Tailwind CSS.
 
 ## 🛠️ Setup and Installation
 
-### 1. Prerequisites
+Follow these steps to get your local environment running.
 
-- **Python 3.12.9**
-- **Conda** (Recommended for environment management)
-- **MongoDB** (Running instance accessible via `mongodb://localhost:27017/` by default)
+### 1. Clone the Repository (Placeholder)
 
-### 2. Environment Setup
+```
 
-Use the provided `environment.yml` to create and activate the project environment.
+# Assuming you are cloning to your local machine
 
-```bash
-# Create and activate the new environment
+git clone \<your-repo-url\>
+cd public-data-explorer-project
+
+```
+
+### 2. Create the Python Environment
+
+Using the provided `environment.yml` file, create and activate the Conda environment:
+
+```
+
 conda env create -f environment.yml
 conda activate wikidata-explorer
 
-# Install required pip packages
-pip install -r requirements.txt # Assuming pip dependencies are specified here
-````
-
-### 3\. Configuration (`.env` or Environment Variables)
-
-The application relies on specific environment variables for configuration. Create a `.env` file in the project root based on this template:
-
-```ini
-# Core Django Settings
-DJANGO_SECRET_KEY='your-strong-secret-key-here'
-DJANGO_DEBUG=True
-DJANGO_ALLOWED_HOSTS=localhost,127.0.0.1
-
-# MongoDB Cache Configuration
-MONGODB_CONNECTION_STRING=mongodb://localhost:27017/
-MONGODB_DATABASE=wikidata_explorer
-MONGODB_CACHE_COLLECTION=sparql_cache
-MONGODB_CACHE_TTL=3600 # Cache expiration in seconds (1 hour)
-
-# SPARQL Service Settings
-SPARQL_ENDPOINT=[https://query.wikidata.org/sparql](https://query.wikidata.org/sparql)
-SPARQL_TIMEOUT=20 # MANDATORY: 20-second query timeout
 ```
 
-### 4\. Database Setup and Run
+### 3. Database Setup
 
-Run the standard Django setup commands:
+This project uses SQLite for saved queries and MongoDB for result caching.
 
-```bash
-# Apply Django migrations (for SQLite/auth/sessions)
+**A. Configure MongoDB**
+Ensure you have a MongoDB service running and update the following settings in your `data_explorer/settings.py` file:
+
+```
+
+# In data\_explorer/settings.py
+
+MONGO\_CONNECTION\_STRING = "mongodb://localhost:27017/"
+MONGO\_DATABASE\_NAME = "wikidata\_explorer\_new"
+
+```
+
+**B. Apply Migrations**
+The Django `SavedQuery` model needs to be initialized:
+
+```
+
+python manage.py makemigrations explorer
 python manage.py migrate
 
-# Create a superuser to access the admin interface (Optional)
-python manage.py createsuperuser
-
-# Start the development server
-python manage.py runserver
 ```
 
-The application will be accessible at `http://127.0.0.1:8000/`.
+### 4. Run the Server
 
-## 🧪 Verification and Testing
+Start the Django development server:
 
-To ensure the new architecture is functioning correctly, verify these endpoints:
+```
 
-1.  **Cache/Health Status:**
+python manage.py runserver 8001
 
-      * **Endpoint:** `/api/status/`
-      * **Check:** Verify the JSON response contains the `cache_stats` block, confirming native MongoDB connection and TTL configuration.
+```
 
-2.  **Timeout Handling:**
+The application will be accessible at `http://127.0.0.1:8001/`.
 
-      * Execute a known slow query (or one that hits the 20-second limit).
-      * **Check:** The application must return a user-friendly "Query Timeout" message (HTTP 408 or rendered error template) and log a `QueryTimeoutException`.
+## ✍️ Usage
 
-3.  **Bug Workaround:**
+1. **Enter Query:** Paste a SPARQL query into the editor.
 
-      * Use the entity detail page or custom query to retrieve properties that include `wdt:P1082` (Population) alongside `rdfs:label`.
-      * **Check:** The query should succeed without raising a `SPARQLWrapper.SPARQLExceptions.EndPointInternalError`.
+2. **Execute:** Click **"Execute Query"**. Results will appear in the **Table View** (default) or **Raw JSON** tab.
 
-## 🧑‍💻 Contribution
+3. **Save:** Click **"Save Query"**, provide a title in the modal, and click Save. The query will appear in the left sidebar.
 
-The `beta-2.0.0` branch is considered stable for testing. All new features or fixes should be targeted toward the current stable branch.
+4. **Load:** Click any saved query in the sidebar to load it back into the editor.
 
-**Maintainers:** [Your Name/Team]
-**License:** [Your License]
+## 💡 Example Working Query
+
+Use this simple query to test connectivity and caching:
+
+```
+
+# Find a few basic properties of the Earth (Q2)
+
+SELECT ?property ?propertyLabel ?value ?valueLabel WHERE {
+wd:Q2 ?property ?value.
+
+# Only select human-readable properties (statements)
+
+FILTER(STRSTARTS(STR(?property), "[http://www.wikidata.org/prop/direct/](https://www.google.com/search?q=http://www.wikidata.org/prop/direct/)"))
+
+SERVICE wikibase:label { bd:serviceParam wikibase:language "en". }
+}
+LIMIT 20
