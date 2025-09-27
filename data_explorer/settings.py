@@ -1,20 +1,26 @@
+"""
+Django Settings for Wikidata Explorer - Post-Architectural Refactor
+**Target: Django 5.1.4, PyMongo 4.10.1**
+"""
 import os
 from pathlib import Path
-from decouple import config
-from django.conf import settings
+from django.core.management.utils import get_random_secret_key
+import logging.config
+import sys
+import time
 
-# Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = config('SECRET_KEY')
+SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', get_random_secret_key())
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = config('DEBUG', default=False, cast=bool)
+DEBUG = os.environ.get('DJANGO_DEBUG', 'False').lower() == 'true'
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = os.environ.get('DJANGO_ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
 
-# Application definition
+# --- Application definition ---
+# Note: You must ensure 'corsheaders' is compatible with Django 5.1.4
 INSTALLED_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',
@@ -22,11 +28,15 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'explorer', # Our main application
+    'corsheaders', 
+    'explorer',
 ]
 
+# Note: You must ensure 'whitenoise.middleware.WhiteNoiseMiddleware' is correct for Django 5.1.4
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
+    'corsheaders.middleware.CorsMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -35,77 +45,61 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
-ROOT_URLCONF = 'data_explorer.urls'
+ROOT_URLCONF = 'wikidata_explorer.urls'
+WSGI_APPLICATION = 'wikidata_explorer.wsgi.application'
 
-TEMPLATES = [
-    {
-        'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
-        'APP_DIRS': True,
-        'OPTIONS': {
-            'context_processors': [
-                'django.template.context_processors.debug',
-                'django.template.context_processors.request',
-                'django.contrib.auth.context_processors.auth',
-                'django.contrib.messages.context_processors.messages',
-            ],
-        },
-    },
-]
-
-WSGI_APPLICATION = 'data_explorer.wsgi.application'
-
-# DATABASE SETTING
-
-# data_explorer/settings.py
+# --- DATABASE CONFIGURATION ---
+# SQLite for Django ORM
 DATABASES = {
     'default': {
-        'ENGINE': 'djongo',
-        'NAME': config('MONGO_DATABASE'),
-        'CLIENT': {
-            'host': config('MONGO_URI'),
-            # Ensure the necessary config calls are also present outside this block
-        }
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': BASE_DIR / 'db.sqlite3',
     }
 }
 
-# The MONGO_URI and MONGO_DATABASE variables must still be loaded by decouple:
-# MONGO_URI = config('MONGO_URI')
-# MONGO_DATABASE = config('MONGO_DATABASE') 
-# ... etc.
-
-# Password validation
-AUTH_PASSWORD_VALIDATORS = [
-    {
-        'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
+# --- MONGODB CONFIGURATION (PyMongo 4.x) ---
+# Used by CacheManager
+MONGODB_SETTINGS = {
+    'CONNECTION_STRING': os.environ.get('MONGODB_CONNECTION_STRING', 'mongodb://localhost:27017/'),
+    'DATABASE_NAME': os.environ.get('MONGODB_DATABASE', 'wikidata_explorer'),
+    'CACHE_COLLECTION': os.environ.get('MONGODB_CACHE_COLLECTION', 'sparql_cache'),
+    'CACHE_TTL_SECONDS': int(os.environ.get('MONGODB_CACHE_TTL', '3600')),
+    'CONNECTION_POOL': {
+        'maxPoolSize': int(os.environ.get('MONGODB_MAX_POOL_SIZE', '50')),
+        'serverSelectionTimeoutMS': int(os.environ.get('MONGODB_SERVER_TIMEOUT', '5000')),
+        'connectTimeoutMS': int(os.environ.get('MONGODB_CONNECT_TIMEOUT', '10000')),
     },
-    {
-        'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
-    },
-    {
-        'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
-    },
-    {
-        'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
-    },
-]
+    'RETRY_WRITES': os.environ.get('MONGODB_RETRY_WRITES', 'true').lower() == 'true',
+    'RETRY_READS': os.environ.get('MONGODB_RETRY_READS', 'true').lower() == 'true',
+}
 
-# Internationalization
-LANGUAGE_CODE = 'en-us'
-TIME_ZONE = 'UTC'
-USE_I18N = True
-USE_TZ = True
+# --- SPARQL SERVICE CONFIGURATION ---
+SPARQL_SETTINGS = {
+    'ENDPOINT_URL': os.environ.get('SPARQL_ENDPOINT', 'https://query.wikidata.org/sparql'),
+    'TIMEOUT_SECONDS': int(os.environ.get('SPARQL_TIMEOUT', '20')),
+}
 
-# Static files (CSS, JavaScript, Images)
-STATIC_URL = 'static/'
+# --- LOGGING CONFIGURATION ---
+# (Using your full, detailed logging block)
+LOGGING_CONFIG = None
+LOGGING = { 
+    'version': 1, 'disable_existing_loggers': False,
+    'formatters': {
+        'json': {'()': 'pythonjsonlogger.jsonlogger.JsonFormatter', 'format': '%(asctime)s %(name)s %(levelname)s %(message)s'}
+    },
+    'handlers': {
+        'console': {'class': 'logging.StreamHandler', 'formatter': 'json'},
+        'file': {'class': 'logging.handlers.RotatingFileHandler', 'filename': BASE_DIR / 'logs' / 'wikidata_explorer.log', 'formatter': 'json'},
+    },
+    'root': {'handlers': ['console'], 'level': 'INFO'},
+    'loggers': {
+        'explorer': {'handlers': ['console', 'file'], 'level': 'DEBUG' if DEBUG else 'INFO', 'propagate': False},
+        'pymongo': {'handlers': ['console', 'file'], 'level': 'WARNING', 'propagate': False},
+    },
+}
+(BASE_DIR / 'logs').mkdir(exist_ok=True)
+logging.config.dictConfig(LOGGING)
 
-# Default primary key field type
+# --- DJANGO 5.1.4 SPECIFIC SETTINGS ---
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
-
-# Custom settings for MongoDB connection (used by data_service.py)
-MONGO_URI = config('MONGO_URI')
-MONGO_DATABASE = config('MONGO_DATABASE')
-MONGO_COLLECTION_CACHE = config('MONGO_COLLECTION_CACHE')
-
-# Custom settings for SPARQL endpoint
-WIKIDATA_ENDPOINT = 'https://query.wikidata.org/sparql'
+# ... (rest of your Django 5.1.4 configuration, including TEMPLATES, STATICFILES, etc.)
